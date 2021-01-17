@@ -19,8 +19,7 @@ class BuildTests {
     fun `ReadyBuild is progressed RunningBuild`() {
         runBlocking {
             val build = testBuild.progress()
-            assertThat(build).isInstanceOf(RunningBuild::class.java)
-            assertThat((build as RunningBuild).step).isEqualTo(testBuild.stepNext)
+            assertThat(build).isEqualTo(RunningBuild(testPipeline, testBuild.stepNext))
         }
     }
 }

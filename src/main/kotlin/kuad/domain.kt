@@ -5,11 +5,15 @@ import arrow.core.Right
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 
-sealed class Build(val pipeline: Pipeline)
-sealed class ActiveBuild(pipeline: Pipeline) : Build(pipeline)
-class ReadyBuild(pipeline: Pipeline, val stepNext: Step) : ActiveBuild(pipeline)
-class RunningBuild(pipeline: Pipeline, val step: Step) : ActiveBuild(pipeline)
-class FinishedBuild(pipeline: Pipeline, val buildResult: BuildResult) : Build(pipeline)
+sealed class Build {
+    abstract val pipeline: Pipeline
+}
+sealed class ActiveBuild : Build()
+data class ReadyBuild(override val pipeline: Pipeline, val stepNext: Step) : ActiveBuild()
+data class RunningBuild (override val pipeline: Pipeline, val step: Step) : ActiveBuild()
+data class FinishedBuild(override val pipeline: Pipeline, val buildResult: BuildResult) : Build()
+
+// ---
 
 sealed class BuildResult {
     object BuildSucceeded : BuildResult()
