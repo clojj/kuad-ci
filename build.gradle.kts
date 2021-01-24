@@ -20,6 +20,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:0.3.3")
     implementation("io.arrow-kt:arrow-core:0.12.0-SNAPSHOT")
 
+    implementation(platform("dev.forkhandles:forkhandles-bom:1.8.1.0"))
+    implementation("dev.forkhandles:values4k")
+
     testImplementation(platform("org.junit:junit-bom:5.7.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core:3.18.1")

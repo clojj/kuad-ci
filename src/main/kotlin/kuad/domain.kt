@@ -3,15 +3,20 @@ package kuad
 import arrow.core.Either
 import arrow.core.Right
 import kotlinx.collections.immutable.PersistentMap
-import kotlinx.collections.immutable.persistentMapOf
+import kuad.BuildResult.BuildSucceeded
+import kuad.StepResult.StepSucceeded
 
-sealed class Build {
-    abstract val pipeline: Pipeline
+sealed class Build
+
+class Pipeline private constructor(val steps: NonEmptyList<Step>) {
+    companion object {
+        fun of(steps: List<Step>) = Pipeline(NonEmptyList(steps))
+    }
 }
-sealed class ActiveBuild : Build()
-data class ReadyBuild(override val pipeline: Pipeline, val stepNext: Step) : ActiveBuild()
-data class RunningBuild (override val pipeline: Pipeline, val step: Step) : ActiveBuild()
-data class FinishedBuild(override val pipeline: Pipeline, val buildResult: BuildResult) : Build()
+
+data class ReadyBuild(val pipeline: Pipeline, val readyStep: Step, val completed: PersistentMap<StepName, StepResult>) : Build()
+data class RunningBuild internal constructor(val pipeline: Pipeline, val runningStep: Step, val completed: PersistentMap<StepName, StepResult>) : Build()
+data class FinishedBuild internal constructor(val pipeline: Pipeline, val buildResult: BuildResult, val completed: PersistentMap<StepName, StepResult>) : Build()
 
 // ---
 
@@ -20,34 +25,24 @@ sealed class BuildResult {
     object BuildFailed : BuildResult()
 }
 
-suspend fun ActiveBuild.progress(): Build =
-    when (this) {
-        is ReadyBuild -> {
-            // TODO side effect: start container
-            RunningBuild(pipeline, stepNext)
+suspend fun ReadyBuild.progress(): Build =
+    // TODO side effect: start container
+    RunningBuild(pipeline, readyStep, completed)
+
+
+suspend fun RunningBuild.progress(): Build {
+
+    // TODO side effect: query container-status of runningStep
+    val completedNext = completed.put(runningStep.stepName, StepSucceeded)
+
+    fun Pipeline.nextStep(): Either<BuildResult, Step> {
+        val step = steps.list.firstOrNull {
+            !completedNext.containsKey(it.stepName)
         }
-        is RunningBuild -> {
-            // TODO side effect: query status of container
-            pipeline.nextStep().fold({ FinishedBuild(pipeline, it) }) { ReadyBuild(pipeline, it) }
-            ReadyBuild(pipeline, step)
-        }
+        return if (step == null) Either.Left(BuildSucceeded) else Right(step)
     }
 
-class Pipeline private constructor(
-    val steps: NonEmptyList<Step>,
-    val completedSteps: PersistentMap<StepName, StepResult> = persistentMapOf()
-) {
-    companion object {
-        fun of(steps: List<Step>) = Pipeline(NonEmptyList(steps))
-    }
-}
-
-suspend fun Pipeline.nextStep(): Either<BuildResult, Step> {
-    val step = steps.list.firstOrNull {
-        // TODO check current step's status
-        !completedSteps.containsKey(it.stepName)
-    }
-    return if (step == null) Either.Left(BuildResult.BuildSucceeded) else Right(step)
+    return pipeline.nextStep().fold({ FinishedBuild(pipeline, it, completedNext) }) { ReadyBuild(pipeline, it, completedNext) }
 }
 
 data class Step private constructor(val stepName: StepName, val commands: NonEmptyList<Command>, val image: Image) {
@@ -65,7 +60,7 @@ sealed class StepResult {
 inline class ContainerExitCode(val code: Int)
 
 fun ContainerExitCode.toStepResult() =
-    if (code == 0) StepResult.StepSucceeded else StepResult.StepFailed(this)
+    if (code == 0) StepSucceeded else StepResult.StepFailed(this)
 
 inline class StepName(val name: String)
 inline class Command(val command: String)

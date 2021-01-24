@@ -3,10 +3,8 @@ package kuad
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import kuad.Step
-import java.lang.IllegalArgumentException
 
-class DomainTests : StringSpec({
+class ValuesTests : StringSpec({
 
     "step with no command is invalid" {
         shouldThrow<IllegalArgumentException> {
